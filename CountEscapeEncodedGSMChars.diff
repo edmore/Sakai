@@ -1,0 +1,122 @@
+Index: user-tool/src/webapp/content/js/sms.send.js
+===================================================================
+--- user-tool/src/webapp/content/js/sms.send.js	(revision 77950)
++++ user-tool/src/webapp/content/js/sms.send.js	(working copy)
+@@ -1,6 +1,9 @@
+ /**
+  * JS Onload code for the SMS User Tool's Send view.
+  * @Author lovemore.nalube@uct.ac.za
++ *
++ * Edited By edmore.moyo@uct.ac.za
++ *
+  **/
+ 
+ $(document).ready(function() {
+@@ -8,7 +11,7 @@
+         history.go(-1);
+         return false;
+     });
+-    
++
+     //Counter for the SMS Textarea
+ 
+         $("#messageBody")
+@@ -36,15 +39,21 @@
+                 few:    "#5C0002",
+                 fewer:  "#D40D12"
+             },
++            countOfEscapedChars = 0,
+             lengthLeft = 160;
+             if (len > 0) {
+                 //SMS-170: When entering an SMS message, detect non-GSM chars and adjust max length to 70
+                 //sms has 140 bytes. if it's utf-16, that's 70 chars, if it's gsm alphabet, 160 chars are packed into 140 bytes (because the alphabet is 7bit)
+ 
+                 limit = !smsUtils.isEncodeableInGsm0338(boxValue) ? 70 : 160;
+-
+                 lengthLeft = limit - len;
+ 
++                // Get a count of the escape-encoded GSM characters in the string
++                if( limit === 160 ){
++                    countOfEscapedChars = smsUtils.numberOfEscapeEncodedGSMChars(boxValue);
++                    lengthLeft = lengthLeft - countOfEscapedChars;
++                }
++
+                 if( lengthLeft >= 20 ){
+                     $('#smsBoxCounter').css("color", counterColour.enough);
+                 }else if( lengthLeft < 20 && lengthLeft > 9 ){
+@@ -55,10 +64,10 @@
+             }
+ 
+             $('#smsBoxCounter').text(lengthLeft);
+-            
++
+             //is message is too long?
+             smsUtils.error.isMessageLengthValid = lengthLeft >= 0;
+-            
++
+             $.fn.SMS.set.setSubmitTaskButton();
+         });
+ 
+@@ -224,4 +233,4 @@
+ 
+     }
+ 
+-});
+\ No newline at end of file
++});
+Index: user-tool/src/webapp/content/js/sms.utils.js
+===================================================================
+--- user-tool/src/webapp/content/js/sms.utils.js	(revision 77950)
++++ user-tool/src/webapp/content/js/sms.utils.js	(working copy)
+@@ -1,6 +1,8 @@
+ /**
+  * JS library for the SMS User Tool Utilities.
+  * @author lovemore.nalube@uct.ac.za
++ *
++ * Edited By edmore.moyo@uct.ac.za
+  **/
+ 
+ var smsUtils = (function($) {
+@@ -92,9 +94,30 @@
+                 //log(true);
+                 return true;
+ 
++            },
++
++
++            // @memberof smsUtils
++            // @description Get the count of the number of Escape-encoded GSM characters
++            // @author edmore.moyo@uct.ac.za
++
++            numberOfEscapeEncodedGSMChars = function(utfString){
++                var utfChars = utfString.split(''),
++                    GSMEscaped = [0x000C, 0x005E, 0x007B, 0x007D, 0x005C, 0x005B, 0x007E, 0x005D, 0x007C, 0x20AC],
++                    i,j,
++                    count = 0;
++
++                    outer: for(var j = 0; j < utfChars.length; j+=1){
++                        for (var i = 0; i < GSMEscaped.length; i+=1) {
++                            if (String.fromCharCode( GSMEscaped[i] ) === utfChars[j]) {
++                                count+=1;
++                                continue outer;
++                            }
++                        }
++                    }
++                    return count;
+             };
+ 
+-
+     //public methods
+     return {
+         error: {
+@@ -108,6 +131,7 @@
+         },
+         isEncodeableInGsm0338: function(utfString){
+            return _isEncodeableInGsm0338(utfString);
+-        }
++        },
++        numberOfEscapeEncodedGSMChars: numberOfEscapeEncodedGSMChars
+     };
+-})($);
+\ No newline at end of file
++})($);
